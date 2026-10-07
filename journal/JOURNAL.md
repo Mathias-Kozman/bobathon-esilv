@@ -12,8 +12,8 @@ stem).
 
 - **Project / dataset:** Parkinson's disease OFF motor score — regression (synthetic multi-cohort)
 - **Goal:** Predict the debiased true OFF MDS-UPDRS motor score (`target`) for every patient visit
-- **Last experiment:** n/a - no experiments run yet
-- **Last result:** n/a
+- **Last experiment:** 01_dummy — mean baseline
+- **Last result:** RMSE 16.48 (random 20 % row holdout)
 
 <!--
 Workspace decisions: one-time project-setup choices. Record each when
@@ -26,11 +26,11 @@ this block on later sessions avoids re-deciding what's already settled.
   - tabular library: pandas - recorded: 2025-10-07
   - env manager: pip+venv - recorded: 2025-10-07
   - agent feature: <installed> - recorded: <YYYY-MM-DD>
-  - optional features: <name1, name2 | none> - recorded: <YYYY-MM-DD>
-  - package name (`src/<pkg>/`): <pkg> - recorded: <YYYY-MM-DD>
-  - skore mode: <local | hub | mlflow> - recorded: <YYYY-MM-DD>
-  - skore hub workspace: <hub-workspace-name | n/a> - recorded: <YYYY-MM-DD>
-  - skore mlflow tracking uri: <mlflow-tracking-uri | n/a> - recorded: <YYYY-MM-DD>
+  - optional features: none - recorded: 2025-10-07
+  - package name (`src/<pkg>/`): parkinson - recorded: 2025-10-07
+  - skore mode: hub - recorded: 2025-10-07
+  - skore hub workspace: Mathias Kozman - recorded: 2025-10-07
+  - skore mlflow tracking uri: n/a - recorded: 2025-10-07
   - student prior: <beginner | some-sklearn | comfortable> - recorded: <YYYY-MM-DD>
   - CV splitter family: GroupKFold (on `patient_id`) - recorded: 2025-10-07
 
@@ -60,7 +60,7 @@ Status values: planned | approved | running | done | abandoned.
 
 | Stem | Intent (one line) | Status | Headline result | Design note |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| 01_dummy | Global mean baseline — RMSE floor | done | RMSE 16.48 (row holdout 0.2) — Hub: [01_dummy](https://skore.probabl.ai/Mathias%20Kozman/bobathon-esilv/estimators/49597) | [journal/01_dummy.md](01_dummy.md) |
 
 ## Backlog
 
