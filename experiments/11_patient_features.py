@@ -33,13 +33,16 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import skore
 from scipy import stats as sp_stats
 from sklearn.metrics import root_mean_squared_error
 from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import clone
+from skore import Project, login
 from skrub import tabular_pipeline
 
 from parkinson import PROJECT_ROOT
+from parkinson.hub import load_skore_credentials
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -220,7 +223,23 @@ print(f"Gain (A - B): {gain:+.4f}  "
       f"({'B better' if gain > 0 else 'A better or equal'})")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 6. Submission — only if B beats A by at least 0.01 RMSE
+# 6. Push CV report to Skore Hub (variant B — the submission model)
+# ──────────────────────────────────────────────────────────────────────────────
+# skore.evaluate receives the pre-materialised cv_splits list. sklearn's
+# check_cv wraps it in _CVIterableWrapper whose .split() ignores X and y and
+# replays the stored tuples verbatim — the GroupKFold(5) patient grouping is
+# preserved exactly. pipe_B is unfitted; skore clones it per fold internally,
+# identical to clone(pipe_B) in run_cv above.
+hub_report = skore.evaluate(pipe_B, X_agg, y, splitter=cv_splits)
+
+cfg = load_skore_credentials()
+login(mode="hub")
+project = Project(name="bobathon-esilv", mode="hub", workspace=cfg["workspace"])
+project.put("11_patient_features", hub_report)
+print("\nReport pushed: 11_patient_features")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 7. Submission — only if B beats A by at least 0.01 RMSE
 # ──────────────────────────────────────────────────────────────────────────────
 IMPROVEMENT_THRESHOLD = 0.01
 
