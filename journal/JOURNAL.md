@@ -12,8 +12,8 @@ stem).
 
 - **Project / dataset:** Parkinson's disease OFF motor score — regression (synthetic multi-cohort)
 - **Goal:** Predict the debiased true OFF MDS-UPDRS motor score (`target`) for every patient visit
-- **Last experiment:** 01_dummy — mean baseline
-- **Last result:** RMSE 16.48 (random 20 % row holdout)
+- **Last experiment:** 03_groupkfold — CV groupé par patient
+- **Last result:** Ridge RMSE 10.5965 (GroupKFold 5 folds) — dummy RMSE 16.4992
 
 <!--
 Workspace decisions: one-time project-setup choices. Record each when
@@ -61,6 +61,8 @@ Status values: planned | approved | running | done | abandoned.
 | Stem | Intent (one line) | Status | Headline result | Design note |
 |---|---|---|---|---|
 | 01_dummy | Global mean baseline — RMSE floor | done | RMSE 16.48 (row holdout 0.2) — Hub: [01_dummy](https://skore.probabl.ai/Mathias%20Kozman/bobathon-esilv/estimators/49597) | [journal/01_dummy.md](01_dummy.md) |
+| 02_ridge | Ridge alpha sweep on 8 features — beat dummy by 36 % | done | RMSE 10.4877 (row holdout 0.2, alpha=1.0) — Hub: [02_ridge](https://skore.probabl.ai/Mathias%20Kozman/bobathon-esilv/estimators/67464) | [journal/02_ridge.md](02_ridge.md) |
+| 03_groupkfold | Réévaluer dummy et Ridge avec GroupKFold par patient | done | Ridge RMSE 10.5965, dummy RMSE 16.4992 (GroupKFold 5 folds) — Hub: [03_dummy_cv](https://skore.probabl.ai/Mathias%20Kozman/bobathon-esilv/cross-validations/67962) · [03_ridge_cv](https://skore.probabl.ai/Mathias%20Kozman/bobathon-esilv/cross-validations/68005) | [journal/03_groupkfold.md](03_groupkfold.md) |
 
 ## Backlog
 
