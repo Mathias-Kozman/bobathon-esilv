@@ -286,13 +286,19 @@ la fuite est faible.
 
 ### Q15 — Quel estimé croire ?
 
-**Énoncé :** Lequel (split aléatoire ou CV groupé) est le plus proche du score Kaggle public ?
-
 **Réponse :**
-Le **CV groupé** (GroupKFold par `patient_id`) simule exactement le split Kaggle :
-des patients entiers sont mis de côté. C'est lui qu'on doit croire.
-Score public Kaggle : **[À COMPLÉTER PAR L'ÉQUIPE]**
 
+Le **GroupKFold à 5 folds, groupé par `patient_id`**, est notre référence pour comparer les modèles localement, car il évite de répartir les visites d'un même patient entre les ensembles d'entraînement et de validation.
+
+Notre évaluation finale donne les résultats suivants :
+
+- Score public Kaggle : **3,873**
+- Score privé Kaggle : **3,825**
+- RMSE final sur Skore Hub : **4,23**
+
+Les scores public et privé proviennent de l'évaluation Kaggle sur des données distinctes de notre validation locale. Le RMSE Skore Hub repose sur son propre protocole d'évaluation : il ne doit donc pas être comparé directement aux scores Kaggle.
+
+Le modèle finalement retenu est l'expérience `17_stacked_improvements`.
 ---
 
 ## Day 2 — HistGradientBoosting (HGBR)
@@ -473,31 +479,46 @@ extrayant `groups = data["patient_id"]` avant le drop.
 
 **Énoncé :** Classer les changements par gain de RMSE.
 
-**Réponse :**
+**Réponse (RMSE en CV groupé à 5 folds, lorsque applicable) :**
 
-| Changement                             | RMSE CV    | Gain vs précédent |
-|----------------------------------------|----------:|------------------:|
-| Dummy (référence)                      | 16.50      | —                 |
-| + Ridge linéaire (8 vars numériques)   | 10.60      | **−5.90 (−35.8%)** |
-| + HGBR (NaN conservés, arbre)          | 7.75       | **−2.85 (−26.8%)** |
-| + tabular_pipeline (cohort, gene, rater) | 7.51     | −0.24 (−3.1%)     |
-| + CV groupé (estimation honnête)       | —          | **0** (ne change pas le modèle) |
-| Exp 13 (LightGBM + feature engineering + ensemble) | ~4.1–5.1 | voir note |
+Étape   Changement                                                              RMSE CV / Hub    Gain vs étape précédente
+0       Dummy (référence)                                                       16.50            ---
+1       + Ridge (8 variables numériques, NaN imputés par la médiane)            10.60            −5.90 (−35.8 %)
+2       + HGBR (arbres, NaN conservés)                                          7.75             −2.85 (−26.8 %)
+3       + tabular_pipeline (cohort, gene, rater_id)                             7.51             −0.24 (−3.1 %)
+4       Meilleur modèle Skore Hub (LightGBM + feature engineering + ensemble)   4.23             −3.28 (−43.7 %)
 
-**Plus gros gain :** passer de Dummy à Ridge (−35.8 %).
-**Deuxième :** passer à HGBR (−26.8 %). **Attention :** ce gain mélange deux changements
-simultanés — le passage d'un modèle linéaire à des arbres de décision, et le fait de
-conserver les NaN (au lieu de les imputer par la médiane). Il n'est pas possible de les
-séparer sans une ablation dédiée.
-**Gain nul :** le CV groupé ne modifie pas les prédictions — il rend l'**estimation**
-honnête, en bloquant la fuite patient entre train et validation.
 
-> **Exp 13 :** l'expérience 13 (LightGBM Optuna-tuné + features patient + ensemble)
-> repart de la baseline exp 12 (tabular_pipeline sur features exp 12, RMSE ≈ 5.20, source :
-> constante `EXP11_RMSE = 5.2019` dans `experiments/12_interaction_features.py`). Le RMSE
-> final de l'exp 13 est calculé dynamiquement lors de l'exécution et n'est pas
-> hardcodé dans le code ; l'exp 16 (qui s'appuie sur exp 15) indique RMSE = 4.12
-> (source : commentaire ligne 11 de `experiments/16_bias_correction.py`).
+
+Classement par gain absolu de RMSE :
+
+Dummy → Ridge (−5.90) : le plus gros gain. Le modèle exploite principalement off, on et age.
+
+tabular_pipeline → meilleur modèle Skore Hub (−3.28) : ajout de features patient (agrégats, voisins temporels, position de visite, indicateurs de valeurs manquantes), encodage du rater, LightGBM et ensemble.
+
+Ridge → HGBR (−2.85) : passage à un modèle à base d'arbres, en conservant les valeurs manquantes.
+
+HGBR → tabular_pipeline (−0.24) : gain plus faible, mais observé sur les 5 folds (voir Q19).
+
+Résultats finaux de la soumission Kaggle — expérience 17_stacked_improvements :
+
+Score public : 3.873
+
+Score privé : 3.825
+
+RMSE final sur Skore Hub : 4.23
+
+Les scores Kaggle correspondent à l'évaluation externe de la soumission finale. Ils ne sont pas directement comparables au RMSE Skore Hub ni aux résultats historiques de validation croisée, car les protocoles d'évaluation diffèrent.
+
+Gain direct nul : le GroupKFold. La validation croisée groupée n'améliore pas directement les prédictions du modèle. Elle fournit une estimation plus fiable de ses performances en empêchant les visites d'un même patient d'apparaître à la fois dans les ensembles d'entraînement et de validation.
+
+Limites d'interprétation :
+
+Les étapes 2 et 4 regroupent plusieurs changements. À l'étape 2, le modèle passe d'une régression linéaire à des arbres et le traitement des valeurs manquantes change également (imputation → gestion native des NaN). À l'étape 4, de nouvelles features, un nouveau modèle et un ensemble sont introduits. Sans expériences d'ablation dédiées, il est impossible d'isoler précisément la contribution de chaque changement.
+
+Le RMSE de 4.23 provient du meilleur rapport Skore Hub. Les scores Kaggle finaux sont de 3.873 en public et 3.825 en privé. Ces valeurs ne doivent pas être comparées comme si elles provenaient du même protocole d'évaluation.
+
+Le RMSE de l'expérience 13 est calculé à l'exécution et n'est pas directement enregistré dans le code. L'expérience 16 mentionne une valeur de 4.12 dans un commentaire, mais celle-ci n'a pas été recalculée indépendamment.
 
 ---
 
