@@ -1,4 +1,11 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : features d'interaction (features × agrégats patient) sur base exp 11
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub + submissions/ (si amélioration confirmée)
+# Exécuter : .venv/Scripts/python.exe experiments/12_interaction_features.py
+# ---------------------------------------------------------------------------
+#
 # Experiment 12: interaction features between strong original features and
 # patient-level aggregates from experiment 11.
 #

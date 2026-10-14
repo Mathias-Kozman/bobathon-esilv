@@ -1,8 +1,28 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : analyse des erreurs résiduelles du meilleur modèle (skrub tabular, exp 05/07)
+# Entrées  : data/X_train.csv, data/y_train.csv
+# Sorties  : sorties console uniquement (pas de hub, pas de CSV Kaggle)
+# Exécuter : .venv/Scripts/python.exe experiments/08_error_analysis.py
+# ---------------------------------------------------------------------------
+#
 # Experiment 08: error analysis on the best model (skrub_tabular, exp 05/07).
 #
 # Goal: understand residual errors, identify actionable improvement paths.
 # No new Kaggle submission. One CV pass of the reference model, then diagnostics.
+#
+# WORKBOOK Day2-Q24 : visites les plus mal prédites (recalculé localement)
+# Réponse : top-20 OOF — off manquant dans 55 % (vs 42.4 % global, +13 pts).
+#   Target moyen dans le top-20 = 77.0 vs 37.5 global. Patients sévères sous-estimés.
+#   Le modèle ramène les prédictions vers la moyenne (régression vers la moyenne).
+#
+# WORKBOOK Day2-Q25 : problèmes non traités et features à construire
+# Réponse : progression temporelle et timing du médicament non adressés dans le workbook.
+#   Features à construire : years_since_diagnosis, rang de visite, agrégats patient on/off,
+#   levo_decay (NaN conservé + indicateur levo_decay_na, jamais 0), indicateurs de manquant.
+#   L'exp 13 a déjà implémenté : agrégats patient (B), voisins temporels (C), position (D),
+#   indicateurs de manquant (E), rater count (F), MixedLM intercept (G), rater OOF (H),
+#   dérivées et interactions (I). Source : build_features() dans 13_best_model.py.
 
 import warnings
 

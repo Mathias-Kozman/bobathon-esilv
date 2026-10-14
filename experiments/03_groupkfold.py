@@ -1,4 +1,19 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : évaluation honnête par CV groupé par patient (GroupKFold 5 folds)
+# Entrées  : data/X_train.csv, data/y_train.csv
+# Sorties  : hub "03_dummy_cv" et "03_ridge_cv" (CrossValidationReports)
+# Exécuter : .venv/Scripts/python.exe experiments/03_groupkfold.py
+# ---------------------------------------------------------------------------
+#
+# WORKBOOK Day2-Q14 : split aléatoire vs GroupKFold
+# Réponse : Dummy aléatoire 16.48 → CV groupé 16.50 (Δ=+0.02, insensible).
+#   Ridge aléatoire 10.49 → CV groupé 10.60 (Δ=+0.11, léger — modèle linéaire
+#   peu sensible à la fuite patient).
+#
+# WORKBOOK Day2-Q15 : quel estimé croire ?
+# Réponse : le CV groupé, car il simule le split Kaggle (holdout par patient entier).
+#   À comparer avec notre score public Kaggle.
 import pandas as pd
 import skore
 from sklearn.dummy import DummyRegressor

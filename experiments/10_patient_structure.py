@@ -1,4 +1,11 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : analyse de la structure patient — diagnose, pas de modèle
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : sorties console uniquement
+# Exécuter : .venv/Scripts/python.exe experiments/10_patient_structure.py
+# ---------------------------------------------------------------------------
+#
 # Experiment 10: patient structure analysis.
 #
 # Pure diagnostic — no model training, no Skore Hub push, no submission.

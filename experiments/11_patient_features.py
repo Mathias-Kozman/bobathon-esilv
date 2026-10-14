@@ -1,4 +1,11 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : features patient (agrégats X-only, sans fuite de target)
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub + submissions/ (si amélioration confirmée)
+# Exécuter : .venv/Scripts/python.exe experiments/11_patient_features.py
+# ---------------------------------------------------------------------------
+#
 # Experiment 11: patient-level feature aggregation — corrected approach.
 #
 # Problem with original: PatientAggregator was fitted on train fold only, so

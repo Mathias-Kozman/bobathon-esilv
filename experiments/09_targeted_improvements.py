@@ -1,4 +1,11 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : améliorations ciblées sur le meilleur modèle Day 2 (skrub_tabular)
+# Entrées  : data/X_train.csv, data/y_train.csv
+# Sorties  : sorties console uniquement
+# Exécuter : .venv/Scripts/python.exe experiments/09_targeted_improvements.py
+# ---------------------------------------------------------------------------
+#
 # Experiment 09: targeted improvements on the best model (skrub_tabular, exp 05/07).
 #
 # Three improvements tested with the same GroupKFold(5) folds as all prior experiments:

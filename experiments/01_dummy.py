@@ -5,6 +5,22 @@
 # **Goal:** Establish the RMSE floor using a DummyRegressor(strategy="mean").
 #           Every future model must beat this number.
 # **Result:** filled in after the run.
+#
+# ---------------------------------------------------------------------------
+# Rôle           : baseline Dummy (prédit toujours la moyenne de train)
+# Entrées        : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties        : hub "01_dummy" (CrossValidationReport), submissions/01_dummy.csv
+# Exécuter       : .venv/Scripts/python.exe experiments/01_dummy.py
+# ---------------------------------------------------------------------------
+#
+# WORKBOOK Day1-Q7 : RMSE dummy vs écart-type de target
+# Réponse : RMSE dummy (split aléatoire 80/20) = 16.48 ; std(target) = 16.50.
+#   Quasi-identiques car le Dummy prédit la moyenne du train : son erreur sur
+#   le holdout est mathématiquement l'écart-type de target.
+#
+# WORKBOOK Day1-Q9 : seuil d'amélioration réelle
+# Réponse : Dummy CV groupé (GroupKFold 5 folds) = 16.50 ± 0.31.
+#   Un gain est réel s'il dépasse nettement 0.31 pt et reste cohérent fold par fold.
 
 # %%
 import pandas as pd

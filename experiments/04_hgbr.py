@@ -1,4 +1,23 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : HistGradientBoostingRegressor — NaN conservés comme signal
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub "04_hgbr", "04_ridge_cv_ref" ; submissions/04_hgbr.csv
+# Exécuter : .venv/Scripts/python.exe experiments/04_hgbr.py
+# ---------------------------------------------------------------------------
+#
+# WORKBOOK Day2-Q16 : HGBR bat-il Ridge sur chaque fold ?
+# Réponse : oui, sur les 5/5 folds. RMSE moyen HGBR = 7.75 vs Ridge 10.60.
+#   Le gain est robuste, pas un artefact de moyenne.
+#
+# WORKBOOK Day2-Q17 : temps de calcul (mesuré sur fold 0, 35 672 lignes train)
+# Réponse : Ridge fit=0.24s, HGBR fit=11.8s → ratio ×50 en fit, ×7 en predict.
+#   Le gain de −2.85 pts RMSE justifie ce coût en production par lots.
+#
+# WORKBOOK Day2-Q18 : importance par permutation vs coefficients Ridge
+# Réponse : top features HGBR = off (7.33), on (5.11), age (2.26), age_at_diagnosis (1.84).
+#   Ridge classe time_since_intake_on premier : artefact d'échelle (0–6 h vs 100–1000 mg/j).
+#   Permutation importance : indépendante de l'échelle + exploite NaN + non-linéarités.
 import time
 
 import pandas as pd

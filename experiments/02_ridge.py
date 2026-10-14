@@ -1,4 +1,26 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : modèle linéaire Ridge, balayage d'alpha, comparaison au Dummy
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub "02_ridge" (meilleur alpha), submissions/02_ridge.csv
+# Exécuter : .venv/Scripts/python.exe experiments/02_ridge.py
+# ---------------------------------------------------------------------------
+#
+# WORKBOOK Day2-Q10 : gain Ridge vs Dummy
+# Réponse : Dummy CV = 16.50, Ridge CV (α=1) = 10.60. Gain = 35.8 %.
+#
+# WORKBOOK Day2-Q11 : coefficients Ridge
+# Réponse : plus grand |coef| = time_since_intake_on (+1.70).
+#   off (+0.59) et on (+0.48) sont positifs — attendu cliniquement.
+#
+# WORKBOOK Day2-Q12 : sans standardisation
+# Réponse : artefact d'échelle — time_since_intake_on varie 0–6 h, ledd 100–1000 mg/j,
+#   age 35–80 ans. Coefficients bruts non comparables entre variables d'échelles différentes.
+#   Il faudrait standardiser pour lire l'importance relative.
+#
+# WORKBOOK Day2-Q13 : balayage alpha {0.1, 1, 10, 100}
+# Réponse : RMSE identique (10.5965) sur toute la plage d'alpha.
+#   Seulement 8 variables pour 44 590 lignes : quasi aucune variance à réguler.
 import pandas as pd
 import skore
 from pathlib import Path

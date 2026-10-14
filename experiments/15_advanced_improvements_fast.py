@@ -1,4 +1,11 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : features d'historique patient séquentielles, sans fuite (variante rapide)
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub + submissions/ (si amélioration sur exp 13)
+# Exécuter : .venv/Scripts/python.exe experiments/15_advanced_improvements_fast.py
+# ---------------------------------------------------------------------------
+#
 # Experiment 15: patient-specific residual random effect (fast variant).
 #
 # Single improvement over exp13: sequential within-patient history features

@@ -1,5 +1,10 @@
 # %%
-# Experiment 06: DataOps workflow with Skrub
+# ---------------------------------------------------------------------------
+# Rôle     : DataOps skrub — GroupKFold baked dans le graphe
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub "06_dataops" (CrossValidationReport) ; submissions/06_dataops.csv
+# Exécuter : .venv/Scripts/python.exe experiments/06_dataops.py
+# ---------------------------------------------------------------------------
 #
 # Builds the full data-to-prediction pipeline as a skrub DataOps graph,
 # evaluates HistGradientBoostingRegressor with GroupKFold(5) by patient_id,
@@ -9,6 +14,17 @@
 # (RMSE 7.7520 in exp 04, -26.9% vs Ridge). No experiment 05 exists in
 # this workspace. HGBR is reused here unchanged so the DataOps evaluation
 # is directly comparable to exp 04.
+#
+# WORKBOOK Day2-Q21 : DataOps vs étape 5 — colonnes de X_op
+# Réponse : X_op = data[FEATURE_COLS] → uniquement 8 colonnes numériques.
+#   Index et patient_id sont ABSENTS de X_op (aucune fuite identifiants).
+#   Score DataOps = 7.7520 (même que exp 04) : même modèle, mêmes features.
+#   Écart std 0.138 vs 0.155 : ddof=0 (np.std défaut) vs ddof=1, mêmes 5 folds.
+#   La valeur de DataOps est organisationnelle (groups attachés au graphe, pas à côté).
+#
+# WORKBOOK Day2-Q22 : risque si Index/patient_id dans les features
+# Réponse : le modèle mémoriserait les IDs du train → ne généralise pas aux nouveaux patients
+#   (Kaggle évalue sur des patients inconnus). Absence d'importance sur ces colonnes = sûr.
 
 import time
 

@@ -1,4 +1,21 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : tabular_pipeline skrub — HGBR avec colonnes texte (cohort, gene, rater_id)
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub "05_skrub_tabular", "05_hgbr_numeric_ref" ; submissions/05_skrub_tabular.csv
+# Exécuter : .venv/Scripts/python.exe experiments/05_skrub_tabular.py
+# ---------------------------------------------------------------------------
+#
+# WORKBOOK Day2-Q19 : gain tabular vs HGBR numérique (fold par fold)
+# Réponse : skrub gagne sur 5/5 folds, delta +0.18 à +0.28 par fold. Cohérent, pas un hasard.
+#   HGBR num folds : [7.83, 7.93, 7.58, 7.60, 7.82] → skrub : [7.55, 7.68, 7.33, 7.42, 7.62]
+#
+# WORKBOOK Day2-Q20 : encodeurs choisis par TableVectorizer (seuil cardinalité = 40)
+# Réponse :
+#   cohort (2 valeurs)   → ToCategorical (< 40 → type category pandas, HGBR natif)
+#   gene   (4 valeurs)   → ToCategorical (< 40 → idem)
+#   rater_id (50 val.)   → StringEncoder (> 40 → encodage dense)
+#   ToCategorical ≠ one-hot : passe la colonne en type category, HGBR la gère directement.
 import time
 
 import pandas as pd

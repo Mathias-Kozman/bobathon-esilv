@@ -1,4 +1,11 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : correction du biais de régression vers la moyenne (isotonic, Huber, quantile)
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub + submissions/ (pour le variant gagnant)
+# Exécuter : .venv/Scripts/python.exe experiments/16_bias_correction.py
+# ---------------------------------------------------------------------------
+#
 # Experiment 16: regression-to-mean bias correction.
 #
 # Builds on exp15 (patient history Block S, RMSE=4.12).

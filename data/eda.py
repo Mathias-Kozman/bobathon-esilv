@@ -4,6 +4,37 @@
 # Exploratory data analysis of the synthetic multi-cohort Parkinson's dataset,
 # run before designing a model.
 #
+# ---------------------------------------------------------------------------
+# Rôle     : exploration initiale des données (EDA) — ne modifie aucune donnée brute
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : data/eda_train.html, data/eda_test.html, data/eda.md
+# Exécuter : .venv/Scripts/python.exe data/eda.py
+# ---------------------------------------------------------------------------
+#
+# WORKBOOK Day1-Q1 : taille du jeu de données
+# Réponse : train = 44 590 visites / 5 576 patients ; test = 11 013 / 1 395 patients.
+#   Médiane 7 visites/patient, max 12.
+#
+# WORKBOOK Day1-Q2 : colonnes les plus manquantes
+# Réponse : time_since_intake_off 78.8 %, time_since_intake_on 46.4 %, off 42.4 %.
+#   Sans off : 42.4 %, sans on : 29.6 %, les deux manquants simultanément : 0 %.
+#
+# WORKBOOK Day1-Q3 : distribution de target
+# Réponse : min=0.0 max=109.5 (< 132 théorique), mean=37.5, std=16.5, skew=0.05.
+#   Distribution quasi-symétrique, pas besoin de transformer la cible.
+#
+# WORKBOOK Day1-Q4 : corrélations avec target
+# Réponse : off (0.871) > on (0.669) > age (0.310) > ledd (0.298).
+#   off n'est PAS une copie de target : off−target a un std de 8.7 pts (≈53 % de σ_y).
+#
+# WORKBOOK Day1-Q5 : ledd manquant par cohorte
+# Réponse : cohorte B = 42.6 % manquant, cohorte A = 35.9 %. Signal non complètement
+#   aléatoire (dépend de la cohorte). Pas prouvable comme MNAR stricto sensu.
+#
+# WORKBOOK Day1-Q6 : colonnes à exclure
+# Réponse : Index (identifiant unique ligne) et patient_id (identifiant patient).
+#   target est la cible. off/on ne sont pas de la fuite (présents en X_test).
+#
 # - **Raw data** is read-only — CSVs live in `data/`. This file never
 #   cleans or modifies the raw data.
 # - **Outputs** go under `EDA_DIR` (the repo's `data/`): an

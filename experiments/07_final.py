@@ -1,4 +1,11 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : sélection du meilleur modèle Day 2, refit complet, soumission Kaggle
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub "07_final" (CrossValidationReport) ; submissions/07_final.csv
+# Exécuter : .venv/Scripts/python.exe experiments/07_final.py
+# ---------------------------------------------------------------------------
+#
 # Experiment 07: final model selection, full-train refit, and Kaggle submission.
 #
 # Model chosen: skrub tabular_pipeline("regressor")
@@ -13,8 +20,17 @@
 # Summary of CV results (GroupKFold 5 folds, patient_id):
 #   03 Ridge              RMSE 10.5965  ±0.267
 #   04 HGBR numeric       RMSE  7.7520  ±0.155
-#   05 skrub_tabular      RMSE  7.5263  ±0.138  <-- best
+#   05 skrub_tabular      RMSE  7.5263  ±0.138  <-- best Day 2
 #   06 HGBR DataOps       RMSE  7.7520  ±0.155  (same as 04)
+#
+# WORKBOOK Day2-Q23 : quel changement a donné le plus gros gain ?
+# Réponse : Dummy→Ridge = −5.90 pts (35.8%), Ridge→HGBR = −2.85 pts (26.8%, mélange
+#   deux changements : modèle arbres + NaN conservés), HGBR→tabular = −0.24 pts (3.1%).
+#   CV groupé = 0 gain modèle (estimation honnête). Score public Kaggle : [À COMPLÉTER].
+#
+# WORKBOOK Day2-Q24 : visites les plus mal prédites
+# Réponse : top 20 — off manquant dans 55 % (vs 42.4 % global), target moyen 77 vs 37.5.
+#   Le modèle sous-estime les patients sévères (target ≥ 45, régression vers la moyenne).
 
 import pandas as pd
 import numpy as np

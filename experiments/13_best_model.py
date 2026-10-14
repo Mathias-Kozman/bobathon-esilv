@@ -1,4 +1,12 @@
 # %%
+# ---------------------------------------------------------------------------
+# Rôle     : meilleur modèle — feature engineering complet + LightGBM + ensemble
+# Entrées  : data/X_train.csv, data/y_train.csv, data/X_test.csv
+# Sorties  : hub "13_best_model" (CrossValidationReport) ; submissions/13_best_model.csv
+# Exécuter : .venv/Scripts/python.exe experiments/13_best_model.py
+# NE PAS MODIFIER : optimisation en cours (experiments/14_improvements.py)
+# ---------------------------------------------------------------------------
+#
 # Experiment 13: best model — full feature engineering + LightGBM + ensemble.
 #
 # Strategy (guided by ICC analysis from exp12 OOF residuals):
