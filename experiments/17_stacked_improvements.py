@@ -68,7 +68,8 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 # 1. Chargement des données
 
-# On charge les trois fichiers bruts. La fusion X_train + y_train se fait sur la colonne Index (identifiant de visite unique). Les assertions vérifient que ni X_train ni X_test ne contiennent la colonne target : toute présence de target à ce stade signalerait une fuite.
+# On charge les trois fichiers bruts. La fusion X_train + y_train se fait sur la colonne Index (identifiant de visite unique). 
+# Les assertions vérifient que ni X_train ni X_test ne contiennent la colonne target : toute présence de target à ce stade signalerait une fuite.
 X_train = pd.read_csv(DATA_DIR / "X_train.csv")
 y_train = pd.read_csv(DATA_DIR / "y_train.csv")
 X_test  = pd.read_csv(DATA_DIR / "X_test.csv")
@@ -91,7 +92,8 @@ print(f"Test : {len(X_test)} rows, {X_test['patient_id'].nunique()} patients")
 
 # 2. Pré-calcul : historique patient (exp15 Bloc S) — fait une seule fois
 
-# Le bloc S est pré-calculé UNE FOIS sur l'ensemble train et sur le test, avant le CV. Pour chaque visite k d'un patient, on calcule des statistiques des visites 1..k-1 (shift(1) → exclut la visite courante).
+# Le bloc S est pré-calculé UNE FOIS sur l'ensemble train et sur le test, avant le CV. 
+# Pour chaque visite k d'un patient, on calcule des statistiques des visites 1..k-1 (shift(1) → exclut la visite courante).
 
 # Pourquoi on pré-calcule avant le CV:
 #   Le bloc S n'utilise que des colonnes X (off, ledd) — jamais la target.
@@ -99,7 +101,8 @@ print(f"Test : {len(X_test)} rows, {X_test['patient_id'].nunique()} patients")
 #   Pendant le CV on découpe simplement hist_train.iloc[tr] / .iloc[val].
 
 # Garantie anti-fuite du bloc S :
-#   Le shift(1) assure que la visite courante ne contribue pas à sa propre statistique. Les patients de validation contribuent à leur propre historique (leurs visites antérieures) mais pas à l'historique des patients d'entraînement, car le calcul est intra-patient. 
+#   Le shift(1) assure que la visite courante ne contribue pas à sa propre statistique. 
+#   Les patients de validation contribuent à leur propre historique (leurs visites antérieures) mais pas à l'historique des patients d'entraînement, car le calcul est intra-patient. 
 #   Il n'y a donc pas de contamination croisée entre patients.
 
 def compute_patient_history(df: pd.DataFrame) -> pd.DataFrame:
@@ -723,7 +726,8 @@ cat_cols_final = [c for c in X_train_feat.columns
 X_train_feat = _lgbm_encode(X_train_feat, cat_cols_final)
 X_test_feat  = _lgbm_encode(X_test_feat,  cat_cols_final)
 
-# Boucle sur 5 seeds : chaque seed_params copie LGBM_PARAMS en ne changeant que random_state. La moyenne des prédictions est l'ensemble final.
+# Boucle sur 5 seeds : chaque seed_params copie LGBM_PARAMS en ne changeant que random_state. 
+# La moyenne des prédictions est l'ensemble final.
 seed_preds = []
 for seed in range(5):
     seed_params = {**LGBM_PARAMS, "random_state": seed}
