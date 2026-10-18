@@ -523,30 +523,26 @@ def build_features(df_raw: pd.DataFrame,
     return feat
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # 5. CV — GroupKFold(5), paramètres LightGBM fixes
-# ══════════════════════════════════════════════════════════════════════════════
-# GroupKFold(5) : les 5 folds sont construits en garantissant que chaque patient
-# n'apparaît que dans un seul fold de validation. C'est essentiel ici car les
-# features du Bloc B et du Bloc H sont calculées per-patient : un patient à
-# cheval sur train et validation entraînerait une fuite d'information.
-#
-# Les splits sont matérialisés une seule fois avant la boucle pour que
-# le Hub push (section 7) réutilise exactement les mêmes folds.
+
+# GroupKFold(5) : les 5 folds sont construits en garantissant que chaque patient n'apparaît que dans un seul fold de validation. 
+# C'est essentiel ici car les features du Bloc B et du Bloc H sont calculées per-patient : un patient à cheval sur train et validation entraînerait une fuite d'information.
+
+# Les splits sont matérialisés une seule fois avant la boucle pour que le Hub push (section 7) réutilise exactement les mêmes folds.
 cv_splits = list(GroupKFold(n_splits=5).split(
     np.arange(len(groups)), groups=groups))
 
-# Hyperparamètres LightGBM — identiques à exp15/16, pas d'Optuna ici.
-# Justifications des valeurs clés :
-#   learning_rate=0.05 + 800 rounds : convergence lente pour réduire le
-#       sur-apprentissage (early stopping arrête tôt si nécessaire).
-#   num_leaves=63 : arbres modérément profonds, contrôle la complexité.
-#   min_child_samples=50 : évite les feuilles de faible support (données
-#       médicales avec peu de patients).
-#   subsample=0.8, colsample_bytree=0.8 : sous-échantillonnage stochastique
-#       pour la régularisation et la diversité des seeds (section 8).
-#   reg_alpha, reg_lambda=0.1 : régularisation L1/L2 légère.
-#   random_state=42 : seed de référence pour le CV (la section 8 varie les seeds).
+"""
+Hyperparamètres LightGBM — identiques à exp15/16, pas d'Optuna ici.
+Justifications des valeurs clés :
+  - learning_rate=0.05 + 800 rounds : convergence lente pour réduire le sur-apprentissage (early stopping arrête tôt si nécessaire).
+  - num_leaves=63 : arbres modérément profonds, contrôle la complexité.
+  - min_child_samples=50 : évite les feuilles de faible support (données médicales avec peu de patients).
+  - subsample=0.8, colsample_bytree=0.8 : sous-échantillonnage stochastique pour la régularisation et la diversité des seeds (section 8).
+  - reg_alpha, reg_lambda=0.1 : régularisation L1/L2 légère.
+  - random_state=42 : seed de référence pour le CV (la section 8 varie les seeds).
+"""
 LGBM_PARAMS = {
     "objective":         "regression_l2",
     "metric":            "rmse",
@@ -567,9 +563,8 @@ print("=" * 60)
 print("CV — GroupKFold(5), all improvements stacked")
 print("=" * 60)
 
-# oof : tableau des prédictions Out-Of-Fold (OOF). Chaque entrée reçoit la
-# prédiction du modèle entraîné sur les 4 autres folds. Utilisé pour la
-# recalibration isotonique (section 6) et le calcul du RMSE CV.
+# oof : tableau des prédictions Out-Of-Fold (OOF). Chaque entrée reçoit la prédiction du modèle entraîné sur les 4 autres folds. 
+# Utilisé pour la recalibration isotonique (section 6) et le calcul du RMSE CV.
 oof        = np.full(len(y), np.nan)
 fold_rmses = []
 
@@ -580,15 +575,12 @@ for fold_i, (tr, val) in enumerate(cv_splits):
     y_tr   = y.iloc[tr].values
     y_val  = y.iloc[val].values
 
-    # ---------------------------------------------------------------
     # Calculs dépendant du fold (tous sur df_tr uniquement → pas de fuite)
     # rater_bias : calculé sur y_tr et df_tr → biais évaluateur fold-safe.
     # pat_agg_tr : statistiques patient sur le fold train.
-    # pat_agg_val : statistiques patient sur le fold val (voir note dans
-    #               _compute_pat_aggregates — légèrement optimiste mais sans
-    #               fuite target car df_val ne contient pas de target).
+    # pat_agg_val : statistiques patient sur le fold val (voir note dans _compute_pat_aggregates — légèrement optimiste mais sans fuite target car df_val ne contient pas de target).
     # hist_train.iloc[tr/val] : tranche de l'historique pré-calculé.
-    # ---------------------------------------------------------------
+    
     rater_bias  = _rater_oof_bias(df_tr, y_tr)
     pat_agg_tr  = _compute_pat_aggregates(df_tr)
     pat_agg_val = _compute_pat_aggregates(df_val)
@@ -596,14 +588,12 @@ for fold_i, (tr, val) in enumerate(cv_splits):
     X_tr_f  = build_features(df_tr,  rater_bias, pat_agg_tr,  hist_train.iloc[tr])
     X_val_f = build_features(df_val, rater_bias, pat_agg_val, hist_train.iloc[val])
 
-    # Alignement des colonnes : si une colonne apparaît en train mais pas en
-    # val (ex. catégorielle absente du fold), on l'ajoute avec NaN pour que
-    # LightGBM puisse prédire sans erreur de structure.
+    # Alignement des colonnes : si une colonne apparaît en train mais pas en val (ex. catégorielle absente du fold), on l'ajoute avec NaN pour que LightGBM puisse prédire sans erreur de structure.
     for c in set(X_tr_f.columns) - set(X_val_f.columns):
         X_val_f[c] = np.nan
     X_val_f = X_val_f[X_tr_f.columns]
 
-    # Détection des colonnes catégorielles (rater_id, gene, etc.) pour l'API
+    # Détection des colonnes catégorielles (rater_id, gene, etc.) pour l'API.
     # LightGBM native (dtype "category" activé dans _lgbm_encode).
     cat_cols = [c for c in X_tr_f.columns
                 if str(X_tr_f[c].dtype) in ("object", "string[python]", "str")]
@@ -615,8 +605,7 @@ for fold_i, (tr, val) in enumerate(cv_splits):
     lgb_val = lgb.Dataset(X_val_f, label=y_val, categorical_feature=cat_cols,
                            free_raw_data=False)
 
-    # early_stopping(50) : arrête si le RMSE validation ne s'améliore pas
-    # durant 50 rounds consécutifs. Évite le sur-apprentissage sans Optuna.
+    # early_stopping(50) : arrête si le RMSE validation ne s'améliore pas durant 50 rounds consécutifs. Évite le sur-apprentissage sans Optuna.
     model = lgb.train(
         LGBM_PARAMS, lgb_tr,
         num_boost_round=800,
@@ -635,24 +624,19 @@ mean_rmse = float(np.mean(fold_rmses))
 std_rmse  = float(np.std(fold_rmses))
 print(f"\nCV result: mean={mean_rmse:.4f}  std={std_rmse:.4f}")
 
-# ══════════════════════════════════════════════════════════════════════════════
 # 6. Recalibration isotonique sur les OOF (exp16, inchangé)
-# ══════════════════════════════════════════════════════════════════════════════
-# Principe : LightGBM avec objectif L2 régresse vers la moyenne et produit
-# des prédictions extrêmes sous-estimées. On ajuste une régression isotonique
-# (non décroissante) sur (oof, y) — l'ensemble OOF complet (5 folds) —
-# pour corriger cette tendance.
-#
+
+# Principe : LightGBM avec objectif L2 régresse vers la moyenne et produit des prédictions extrêmes sous-estimées. 
+# On ajuste une régression isotonique (non décroissante) sur (oof, y)  l'ensemble OOF complet (5 folds) pour corriger cette tendance.
+
 # Garantie anti-fuite :
-#   Le calibrateur voit oof[i] (prédiction du modèle entraîné SANS la visite i)
-#   et y[i]. La paire (oof[i], y[i]) n'a jamais été vue ensemble lors de
-#   l'entraînement du modèle qui a produit oof[i]. C'est la garantie
-#   fondamentale des prédictions OOF.
+#   Le calibrateur voit oof[i] (prédiction du modèle entraîné SANS la visite i) et y[i]. 
+#   La paire (oof[i], y[i]) n'a jamais été vue ensemble lors de l'entraînement du modèle qui a produit oof[i]. 
+#   C'est la garantie fondamentale des prédictions OOF.
 #
 # Décision conditionnelle :
-#   On n'applique la recalibration que si elle améliore le RMSE d'au moins
-#   0.002 point. Ce seuil évite de l'appliquer quand le gain est dans le
-#   bruit de mesure du CV.
+#   On n'applique la recalibration que si elle améliore le RMSE d'au moins 0.002 point. 
+#   Ce seuil évite de l'appliquer quand le gain est dans le bruit de mesure du CV.
 valid      = ~np.isnan(oof)
 iso        = IsotonicRegression(out_of_bounds="clip")
 iso.fit(oof[valid], y.values[valid])
@@ -663,19 +647,15 @@ use_iso    = rmse_iso < mean_rmse - 0.002
 print(f"\nIsotonic: raw={mean_rmse:.4f}  calibrated={rmse_iso:.4f}  "
       f"({'applied' if use_iso else 'skipped'})")
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # 7. Push Hub — tabular_pipeline sur la matrice de features complète
-#
-# Même pattern que exp11-13 : skore.evaluate reçoit la matrice pré-construite
-# et les cv_splits identiques à ceux du CV principal. tabular_pipeline
-# ("regressor") sert de modèle proxy pour produire un CrossValidationReport
-# complet visible sur le Hub (métriques réelles + plots diagnostics).
-#
-# Note : la matrice X_hub est construite avec rater_bias_hub et pat_agg_hub
-# calculés sur tout le train (pas fold par fold). C'est correct car ces
-# matrices ne servent qu'à l'affichage du rapport Hub, pas à la métriques CV
-# officielle qui est calculée à la section 5 (fold par fold).
-# ══════════════════════════════════════════════════════════════════════════════
+
+# Même pattern que exp11-13 : skore.evaluate reçoit la matrice pré-construite et les cv_splits identiques à ceux du CV principal. 
+# tabular_pipeline ("regressor") sert de modèle proxy pour produire un CrossValidationReport complet visible sur le Hub (métriques réelles + plots diagnostics).
+
+# Note : la matrice X_hub est construite avec rater_bias_hub et pat_agg_hub calculés sur tout le train (pas fold par fold). 
+# C'est correct car ces matrices ne servent qu'à l'affichage du rapport Hub, pas à la métriques CV officielle qui est calculée à la section 5 (fold par fold).
+
 print()
 print("=" * 60)
 print("Pushing report to Skore Hub (Mathias Kozman)")
@@ -699,27 +679,21 @@ project.put("17_stacked_improvements", hub_report)
 print("Report pushed: 17_stacked_improvements")
 print(f"Hub: https://skore.probabl.ai/{cfg['workspace']}/bobathon-esilv")
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # 8. Modèle final — ensemble 5 seeds [NEW exp17]
-# ══════════════════════════════════════════════════════════════════════════════
+
 # Principe de l'ensemble par seeds :
-#   LightGBM avec subsample=0.8 et colsample_bytree=0.8 est stochastique :
-#   chaque arbre n'utilise qu'un sous-ensemble aléatoire de lignes et de
-#   colonnes. Deux entraînements avec des seeds différents produisent des
-#   modèles légèrement différents dont les erreurs sont faiblement corrélées.
+#   LightGBM avec subsample=0.8 et colsample_bytree=0.8 est stochastique : chaque arbre n'utilise qu'un sous-ensemble aléatoire de lignes et de colonnes. 
+#   Deux entraînements avec des seeds différents produisent des modèles légèrement différents dont les erreurs sont faiblement corrélées.
 #   La moyenne de 5 prédictions réduit la variance sans augmenter le biais.
 #
-#   Seeds 0-4 (et non seed unique 42) : couvre un espace de diversité suffisant
-#   sans coût excessif (5× le temps d'entraînement final, ~5 × 3s = 15s).
+#   Seeds 0-4 (et non seed unique 42) : couvre un espace de diversité suffisant sans coût excessif (5× le temps d'entraînement final, ~5 × 3s = 15s).
 #
-#   Le modèle final est entraîné sur TOUT le train (pas de validation split) :
-#   on utilise le nombre de rounds fixé à 800 (early stopping non applicable
-#   sans ensemble de validation). C'est cohérent avec le fait que best_iteration
-#   varie peu entre folds (observé ~600-750 au CV).
-#
-# rater_bias_hub et pat_agg_hub sont réutilisés (calculés sur tout le train).
-# pat_agg_test_17 : agrégats patient calculés sur X_test (visites de test
-#   uniquement) — cohérent avec la convention de build_features où pat_agg
+#   Le modèle final est entraîné sur TOUT le train (pas de validation split): on utilise le nombre de rounds fixé à 800 (early stopping non applicable sans ensemble de validation). 
+#   C'est cohérent avec le fait que best_iteration varie peu entre folds (observé ~600-750 au CV).
+
+#   rater_bias_hub et pat_agg_hub sont réutilisés (calculés sur tout le train).
+#   pat_agg_test_17 : agrégats patient calculés sur X_test (visites de testuniquement) — cohérent avec la convention de build_features où pat_agg
 #   reflète toujours les données disponibles pour le sous-ensemble.
 print()
 print("=" * 60)
@@ -739,8 +713,7 @@ for c in set(X_train_feat.columns) - set(X_test_feat.columns):
     X_test_feat[c] = np.nan
 X_test_feat = X_test_feat[X_train_feat.columns]
 
-# Assertions de sécurité : s'assurer que ni la target ni les identifiants
-# n'ont filtré dans la matrice finale.
+# Assertions de sécurité : s'assurer que ni la target ni les identifiants n'ont filtré dans la matrice finale.
 assert "target"     not in X_train_feat.columns
 assert "patient_id" not in X_train_feat.columns
 assert "Index"      not in X_train_feat.columns
@@ -750,8 +723,7 @@ cat_cols_final = [c for c in X_train_feat.columns
 X_train_feat = _lgbm_encode(X_train_feat, cat_cols_final)
 X_test_feat  = _lgbm_encode(X_test_feat,  cat_cols_final)
 
-# Boucle sur 5 seeds : chaque seed_params copie LGBM_PARAMS en ne changeant
-# que random_state. La moyenne des prédictions est l'ensemble final.
+# Boucle sur 5 seeds : chaque seed_params copie LGBM_PARAMS en ne changeant que random_state. La moyenne des prédictions est l'ensemble final.
 seed_preds = []
 for seed in range(5):
     seed_params = {**LGBM_PARAMS, "random_state": seed}
@@ -766,16 +738,12 @@ for seed in range(5):
 # Moyenne des prédictions des 5 modèles (réduction de la variance).
 preds_test = np.mean(seed_preds, axis=0)
 
-# Application conditionnelle de la recalibration isotonique (si elle a aidé
-# sur les OOF à la section 6). Le calibrateur `iso` est fitted sur les OOF
-# du CV seed=42 uniquement — approximation acceptable car les 5 seeds
-# produisent des distributions de prédictions proches.
+# Application conditionnelle de la recalibration isotonique (si elle a aidé sur les OOF à la section 6). Le calibrateur `iso` est fitted sur les OOF du CV seed=42 uniquement — approximation acceptable car les 5 seeds produisent des distributions de prédictions proches.
 if use_iso:
     preds_test = iso.predict(preds_test)
 
 # Clipping physique [0, 132] — dernière étape, après recalibration.
-# MDS-UPDRS Part III ne peut pas être négatif ni dépasser 132 ; tout score
-# hors de cette plage est une erreur de modèle, pas une information utile.
+# MDS-UPDRS Part III ne peut pas être négatif ni dépasser 132 ; tout score hors de cette plage est une erreur de modèle, pas une information utile.
 preds_test = np.clip(preds_test, TARGET_MIN, TARGET_MAX)
 
 # Vérifications finales : aucun NaN / inf ne doit passer dans la soumission.
@@ -783,9 +751,9 @@ assert not np.isnan(preds_test).any()
 assert not np.isinf(preds_test).any()
 assert len(preds_test) == len(pd.read_csv(DATA_DIR / "sample_submission.csv"))
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # 9. Fichier de soumission
-# ══════════════════════════════════════════════════════════════════════════════
+
 # L'ordre des Index doit correspondre exactement à X_test (assertion vérifiée).
 submission = X_test[["Index"]].copy()
 submission["target"] = preds_test
@@ -797,9 +765,8 @@ out.mkdir(exist_ok=True)
 submission.to_csv(out / "17_stacked_improvements.csv", index=False)
 print(f"\nSubmission: submissions/17_stacked_improvements.csv  ({len(submission)} rows)")
 
-# ══════════════════════════════════════════════════════════════════════════════
 # 10. Résumé
-# ══════════════════════════════════════════════════════════════════════════════
+
 print()
 print("=" * 60)
 print("FINAL SUMMARY")
