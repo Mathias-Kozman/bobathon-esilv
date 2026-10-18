@@ -1,69 +1,50 @@
-# %%
-# ---------------------------------------------------------------------------
-# Rôle     : expérience 17 — cumul de toutes les améliorations sur le modèle
-#            LightGBM (exp13 → 15 → 16 + trois nouveautés exp17).
+# Expérience 17 : ajout de plusieurs améliorations au modèle LightGBM
+# Cette expérience reprend les améliorations des expériences 15 et 16, puis ajoute trois nouvelles modifications.
+# Les améliorations précédentes :
+# - exp15 : ajout de statistiques sur les visites précédentes de chaque
+#   patient (off_hist_mean, off_hist_count, off_hist_std, ledd_hist_mean
+#   et hist_n_visits).
+# - exp16 : utilisation de la calibration isotonic pour corriger les
+#   prédictions du modèle à partir des prédictions OOF.
 #
-# Idée centrale (ce qui change par rapport à exp15/16)
-# -------------------------------------------------------
-# exp15 avait ajouté le Bloc S (historique séquentiel par patient : off_hist_mean,
-# off_hist_count, off_hist_std, ledd_hist_mean, hist_n_visits) pour capturer
-# l'effet aléatoire patient sans fuite.
+# Les trois nouveautés de cette expérience :
 #
-# exp16 avait ajouté la recalibration isotonique sur les prédictions OOF afin
-# de corriger le biais de régression vers la moyenne (mean-regression bias).
+# A - Entraînement avec 5 seeds
+#     - Le modèle est entraîné 5 fois avec des seeds différents (de 0 à 4).
+#     - On fait ensuite la moyenne des prédictions pour obtenir un résultat plus stable. Cette méthode est utilisée uniquement pour les prédictions finales, pas pendant la validation croisée.
 #
-# exp17 empile trois nouvelles améliorations sur ces deux bases :
+# B - Limitation des prédictions entre 0 et 132
+#     Le score MDS-UPDRS Part III est compris entre 0 et 132.
+#     On limite donc les prédictions à cet intervalle pour éviter d'obtenir des valeurs impossibles.
 #
-#   A — Ensemble 5 seeds  (LOW IMPACT)
-#       Le modèle final est entraîné 5 fois avec des seeds différents (0-4) et
-#       les prédictions test sont moyennées. Réduit la variance stochastique du
-#       boosting (sous-échantillonnage de lignes / colonnes à chaque arbre).
-#       Pas appliqué pendant le CV ; seules les métriques CV sont exposées.
+# C - Nouvelle feature liée au temps depuis la prise du médicament
+#     On utilise exp(-time_since_intake_off / 2.0) lorsque cette information est disponible, et NaN sinon.
+#     Cette feature donne une estimation simple de l'effet du médicament au cours du temps, en utilisant une demi-vie d'environ 2 heures.
+#     Elle est calculée à partir des données disponibles, sans utiliser la variable cible.
 #
-#   B — Clipping cible [0, 132]  (TRIVIAL)
-#       MDS-UPDRS Part III est bornée physiquement : 0 (meilleur) à 132
-#       (pire). Le modèle peut extrapoler au-delà ; on clip les prédictions
-#       finales à cette plage. Impact marginal car peu de valeurs sortent.
+# Remarque :
+# Nous avons essayé un encodage de la cible par patient, mais les résultats en validation étaient beaucoup moins bons. Les patients présents dans l'entraînement avaient des moyennes calculées à partir de leurs scores, alors que les patients de validation recevaient la moyenne générale (environ 37.5).
+# Le modèle avait donc du mal à utiliser cette feature correctement.
+# Nous avons gardé les statistiques historiques de l'expérience 15, qui permettent déjà de prendre en compte les différences entre patients.
 #
-#   C — Proxy de décroissance lévodopa  (MEDIUM IMPACT)
-#       exp(-time_since_intake_off / 2.0) quand time_since_intake_off est
-#       disponible, NaN sinon. Convertit le timing du médicament en une
-#       concentration sanguine approximative en accord avec le modèle PK
-#       documenté dans CONTEXT.md (demi-vie ~2 h). Cette feature est calculée
-#       depuis une colonne X pure (pas de target) → pas de fuite.
+# Fichiers utilisés :
+# - data/X_train.csv : features des données d'entraînement.
+# - data/y_train.csv : scores MDS-UPDRS à prédire.
+# - data/X_test.csv  : features des données de test.
 #
-# Note importante : l'encodage cible par patient (within-fold OOF target
-# encoding) a été retiré. Il provoquait une rupture de distribution
-# train/val : les lignes d'entraînement recevaient la moyenne des targets du
-# patient, tandis que les patients de validation (non vus) recevaient la
-# moyenne globale (~37.5). LightGBM construisait des splits massifs sur cette
-# feature qui s'effondrait à la validation, faisant passer le RMSE de 3.9 à
-# 11.8. Le bloc S (off_hist_mean) capte déjà la baseline patient sans fuite.
+# Quelques colonnes importantes :
+# patient_id, Index, off, on, ledd, age, age_at_diagnosis, time_since_intake_on, time_since_intake_off, rater_id et gene.
 #
-# Entrées
-# -------
-#   data/X_train.csv    : matrice de features d'entraînement (sans target).
-#                         Colonnes clés : patient_id, Index (numéro de visite
-#                         monotone), off, on, ledd, age, age_at_diagnosis,
-#                         time_since_intake_on, time_since_intake_off,
-#                         rater_id, gene.
-#   data/y_train.csv    : targets, colonnes [Index, target] — score MDS-UPDRS.
-#   data/X_test.csv     : matrice de features test (même colonnes, sans target).
+# Résultats :
+# - Fichier de soumission : submissions/17_stacked_improvements.csv
+# - Colonnes du fichier : Index, target
+# - Skore Hub : 17_stacked_improvements
 #
-# Sorties
-# -------
-#   submissions/17_stacked_improvements.csv : fichier de soumission
-#                                             (colonnes : Index, target).
-#   Skore Hub key        : "17_stacked_improvements"
-#                          (CrossValidationReport visible sur le Hub).
-#
-# Comment exécuter
-# ----------------
-#   .venv\Scripts\python.exe experiments/17_stacked_improvements.py
-#   (ou depuis la racine du projet avec le venv activé)
-# ---------------------------------------------------------------------------
+# Pour exécuter le script (dans le command terminal):
+# .venv\Scripts\python.exe experiments/17_stacked_improvements.py
 
-import warnings
+
+import warnings # Ignorer les avertissements pour garder une sortie plus lisible (on a eu des problèmes avec les avertissements)
 
 import numpy as np
 import pandas as pd
@@ -79,19 +60,15 @@ import lightgbm as lgb
 from parkinson import PROJECT_ROOT
 from parkinson.hub import load_skore_credentials
 
-# Supprime les FutureWarning de pandas/LightGBM qui parasitent la sortie console
-# sans affecter les résultats.
+# Supprime les FutureWarning de pandas/LightGBM qui parasitent la sortie console sans affecter les résultats.
 warnings.filterwarnings("ignore")
 
 DATA_DIR = PROJECT_ROOT / "data"
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # 1. Chargement des données
-# ══════════════════════════════════════════════════════════════════════════════
-# On charge les trois fichiers bruts. La fusion X_train + y_train se fait sur
-# la colonne Index (identifiant de visite unique). Les assertions vérifient que
-# ni X_train ni X_test ne contiennent la colonne target : toute présence de
-# target à ce stade signalerait une fuite.
+
+# On charge les trois fichiers bruts. La fusion X_train + y_train se fait sur la colonne Index (identifiant de visite unique). Les assertions vérifient que ni X_train ni X_test ne contiennent la colonne target : toute présence de target à ce stade signalerait une fuite.
 X_train = pd.read_csv(DATA_DIR / "X_train.csv")
 y_train = pd.read_csv(DATA_DIR / "y_train.csv")
 X_test  = pd.read_csv(DATA_DIR / "X_test.csv")
@@ -104,59 +81,46 @@ visits = X_train.merge(y_train, on="Index")
 assert len(visits) == len(X_train) == len(y_train)
 
 # y contient les scores MDS-UPDRS (cible de régression, entiers 0-132).
-# groups contient les patient_id pour le GroupKFold (on ne doit jamais voir
-# le même patient à la fois en train et en validation).
+# groups contient les patient_id pour le GroupKFold (on ne doit jamais voir le même patient à la fois en train et en validation).
 y      = visits["target"].reset_index(drop=True)
 groups = visits["patient_id"].reset_index(drop=True)
 
 print(f"Train: {len(visits)} rows, {groups.nunique()} patients")
 print(f"Test : {len(X_test)} rows, {X_test['patient_id'].nunique()} patients")
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # 2. Pré-calcul : historique patient (exp15 Bloc S) — fait une seule fois
-# ══════════════════════════════════════════════════════════════════════════════
-# Le bloc S est pré-calculé UNE FOIS sur l'ensemble train et sur le test,
-# AVANT le CV. Pour chaque visite k d'un patient, on calcule des statistiques
-# des visites 1..k-1 (shift(1) → exclut la visite courante).
-#
-# Pourquoi pré-calculer avant le CV ?
+
+# Le bloc S est pré-calculé UNE FOIS sur l'ensemble train et sur le test, avant le CV. Pour chaque visite k d'un patient, on calcule des statistiques des visites 1..k-1 (shift(1) → exclut la visite courante).
+
+# Pourquoi on pré-calcule avant le CV:
 #   Le bloc S n'utilise que des colonnes X (off, ledd) — jamais la target.
-#   Il est donc safe de le calculer sur l'ensemble du train sans risque de
-#   fuite vers y. Le calculer une seule fois évite un coût O(n × n_folds).
+#   Il est donc safe de le calculer sur l'ensemble du train sans risque de fuite vers y. Le calculer une seule fois évite un coût O(n × n_folds).
 #   Pendant le CV on découpe simplement hist_train.iloc[tr] / .iloc[val].
-#
+
 # Garantie anti-fuite du bloc S :
-#   Le shift(1) assure que la visite courante ne contribue pas à sa propre
-#   statistique. Les patients de validation contribuent à leur propre
-#   historique (leurs visites antérieures) mais pas à l'historique des patients
-#   d'entraînement, car le calcul est intra-patient. Il n'y a donc pas de
-#   contamination croisée entre patients.
+#   Le shift(1) assure que la visite courante ne contribue pas à sa propre statistique. Les patients de validation contribuent à leur propre historique (leurs visites antérieures) mais pas à l'historique des patients d'entraînement, car le calcul est intra-patient. 
+#   Il n'y a donc pas de contamination croisée entre patients.
 
 def compute_patient_history(df: pd.DataFrame) -> pd.DataFrame:
-    """Calcule les features d'historique séquentiel par patient (Bloc S, exp15).
+    
+"""Calcule des informations sur les visites précédentes de chaque patient.
 
-    Pour chaque visite k du patient p, agrège uniquement les visites
-    antérieures (1 … k-1, ordonnées par Index) de ce même patient.
-    La colonne Index est supposée monotone avec l'âge/le temps.
+    Pour chaque visite, on regarde uniquement les visites précédentes du même patient, en suivant l'ordre de la colonne Index.
 
-    Utilise uniquement des colonnes X (off, ledd) — jamais la target —
-    ce qui rend le calcul safe que ce soit avant ou pendant le CV.
+    On utilise seulement les colonnes off et ledd, sans utiliser le score à prédire (target), pour éviter les fuites de données.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame brut contenant au moins les colonnes patient_id, Index,
-        off et ledd. Ne doit pas contenir de colonne "target".
+    Paramètres:
+    df : pd.DataFrame - Tableau contenant les colonnes patient_id, Index, off et ledd.
 
-    Returns
-    -------
-    pd.DataFrame
-        Cinq colonnes, indexées comme df :
-        - off_hist_mean  : moyenne des valeurs off des visites précédentes.
-        - off_hist_count : nombre de visites précédentes avec off non NaN.
-        - off_hist_std   : écart-type des off précédents (NaN si < 2 visites).
-        - ledd_hist_mean : moyenne des ledd précédentes.
-        - hist_n_visits  : rang de la visite dans la séquence patient (0 = première).
+    Retour:
+    pd.DataFrame - Un tableau contenant cinq nouvelles colonnes :
+        - off_hist_mean : moyenne des valeurs off des visites précédentes.
+        - off_hist_count : nombre de valeurs off disponibles auparavant.
+        - off_hist_std : écart-type des valeurs off précédentes.
+        - ledd_hist_mean : moyenne des valeurs ledd des visites précédentes.
+        - hist_n_visits : nombre de visites précédentes du patient.
+          Pour la première visite, cette valeur est égale à 0.
     """
     assert "target" not in df.columns
     # Tri par (patient_id, Index) pour respecter l'ordre chronologique.
@@ -164,8 +128,7 @@ def compute_patient_history(df: pd.DataFrame) -> pd.DataFrame:
         ["patient_id", "Index"]).copy()
 
     # Masques de validité : 1.0 si la valeur est présente, 0.0 sinon.
-    # Utilisés comme dénominateur pour obtenir des moyennes correctes même
-    # en présence de NaN (expanding().sum() ignore les NaN par défaut).
+    # Utilisés comme dénominateur pour obtenir des moyennes correctes même en présence de NaN (expanding().sum() ignore les NaN par défaut).
     s["_off_valid"]  = s["off"].notna().astype(float)
     s["_ledd_valid"] = s["ledd"].notna().astype(float)
 
@@ -207,9 +170,7 @@ hist_train = compute_patient_history(visits_x)
 hist_test  = compute_patient_history(X_test)
 print("Patient history pre-computed.")
 
-# ══════════════════════════════════════════════════════════════════════════════
 # 3. Helpers de construction des features
-# ══════════════════════════════════════════════════════════════════════════════
 
 # Colonnes numériques agrégées au niveau patient (Bloc B).
 AGG_COLS_NUM  = ["off", "on", "ledd", "age", "age_at_diagnosis",
@@ -230,28 +191,26 @@ TARGET_MAX    = 132.0
 
 
 def _vectorised_slope(pid_arr, x_arr, y_arr):
-    """Calcule la pente OLS intra-patient (age vs. variable) de façon vectorisée.
+    
+"""Calcule la pente entre l'âge et une variable pour chaque patient.
 
-    Pour chaque patient, ajuste y = β·x + α par moindres carrés en utilisant
-    uniquement les visites où ni x ni y ne sont NaN. Retourne NaN pour les
-    patients avec moins de 3 visites valides (pente non fiable).
+    Pour chaque patient, on utilise une régression linéaire pour voir comment une variable évolue avec l'âge.
 
-    Entièrement vectorisé via groupby + agg : pas de boucle Python par patient.
+    On garde uniquement les visites où l'âge et la variable sont disponibles. Si un patient a moins de 3 visites valides, sa pente est remplacée par NaN, car le résultat serait moins fiable.
 
-    Parameters
-    ----------
-    pid_arr : array-like of shape (n,)
-        Tableau de patient_id correspondant à chaque ligne.
-    x_arr : array-like of shape (n,)
-        Variable indépendante (typiquement l'âge).
-    y_arr : array-like of shape (n,)
-        Variable dépendante (off, on, ledd, etc.).
+    Le calcul est fait avec groupby et agg pour traiter les patients sans avoir besoin d'une boucle pour chacun d'entre eux.
 
-    Returns
-    -------
-    pd.Series
-        Pente OLS par patient_id (index = patient_id). NaN si n_valid < 3.
+    Paramètres:
+    pid_arr : Tableau contenant l'identifiant de chaque patient.
+    x_arr : Valeurs de l'âge.
+    y_arr : Valeurs de la variable étudiée (off, on, ledd, etc.).
+
+    Retour:
+    pd.Series:
+        Une série contenant la pente calculée pour chaque patient.
+        Si un patient a moins de 3 visites valides, la valeur est NaN.
     """
+
     mask = ~(np.isnan(x_arr) | np.isnan(y_arr))
     if mask.sum() == 0:
         return pd.Series(dtype=float)
@@ -264,41 +223,36 @@ def _vectorised_slope(pid_arr, x_arr, y_arr):
         sxy=("xy","sum"), sx2=("x2","sum"))
     num = agg["n"]*agg["sxy"] - agg["sx"]*agg["sy"]
     den = agg["n"]*agg["sx2"] - agg["sx"]**2
-    # where(den.abs() > 1e-10) : évite la division par zéro quand tous les x
-    # d'un patient sont identiques (âge constant → pente indéfinie).
+    # where(den.abs() > 1e-10) : évite la division par zéro quand tous les x d'un patient sont identiques (âge constant → pente indéfinie).
     return (num / den.where(den.abs() > 1e-10)).where(agg["n"] >= 3)
 
 
 def _compute_pat_aggregates(df: pd.DataFrame) -> pd.DataFrame:
-    """Calcule les agrégats statistiques par patient (Bloc B).
+    
+"""Calcule des statistiques pour chaque patient (Bloc B).
 
-    Produit mean, median, std, min, max, count de chaque colonne numérique
-    listée dans AGG_COLS_NUM, plus les pentes OLS (âge vs. variable) pour
-    chaque patient. Ces agrégats sont calculés sur l'ensemble du sous-DataFrame
-    passé en entrée (train fold ou test complet selon l'appelant).
+    Pour chaque patient, calcule la moyenne, la médiane, l'écart-type, le minimum, le maximum et le nombre de valeurs pour chaque colonne numérique de AGG_COLS_NUM.
 
-    IMPORTANT (risque de fuite partielle) : pendant le CV, cette fonction est
-    appelée séparément sur df_tr (fold train) et sur df_val (fold validation).
-    Les statistiques patient du fold de validation sont donc calculées sur les
-    visites du fold de validation uniquement — ce qui est légèrement optimiste
-    pour les patients dont certaines visites tombent dans d'autres folds. Ce
-    biais est inévitable dès lors qu'on veut des features patient sans voir
-    toutes les visites futures ; il n'implique PAS de fuite target car df_val
-    ne contient pas de colonne target.
+    On calcule aussi la pente entre l'âge et chaque variable pour voir comment les valeurs évoluent au fil du temps.
 
-    Parameters
-    ----------
+    Les calculs sont faits uniquement à partir du tableau donné en entrée, qui peut correspondre aux données d'entraînement, de validation ou de test.
+
+    Attention :
+    Pendant la validation croisée, les statistiques sont calculées séparément pour les données d'entraînement et de validation.
+    Les statistiques de validation utilisent donc uniquement les visites présentes dans ce groupe. Cela peut donner un résultat légèrementoptimiste pour les patients répartis entre plusieurs groupes.
+    Cependant, on n'utilise jamais la colonne target pour ces calculs, donc il n'y a pas de fuite liée aux scores à prédire.
+
+    Paramètres
     df : pd.DataFrame
-        DataFrame features-only (sans colonne "target") contenant au moins
-        patient_id et les colonnes de AGG_COLS_NUM.
+        Tableau contenant les données des patients, sans la colonne target.
+        Il doit contenir patient_id et les colonnes de AGG_COLS_NUM.
 
-    Returns
-    -------
-    pd.DataFrame
-        Un DataFrame indexé par patient_id avec toutes les colonnes agrégées
-        (suffixe _pat). Peut être joint directement via df.join(pat_agg,
-        on="patient_id").
+    Retour
+    pd.DataFrame:
+        Un tableau avec une ligne par patient et toutes les statistiques calculées. Les colonnes ajoutées se terminent par _pat.
+        Ce tableau peut ensuite être associé aux données d'origine grâce à la colonne patient_id.
     """
+
     assert "target" not in df.columns
     gb = df.groupby("patient_id", sort=False)
     agg_funcs: dict = {}
@@ -323,7 +277,7 @@ def _compute_pat_aggregates(df: pd.DataFrame) -> pd.DataFrame:
         pat_df[f"{col}_first_pat"] = notna.groupby("patient_id")[col].first()
         pat_df[f"{col}_last_pat"]  = notna.groupby("patient_id")[col].last()
 
-    # Pentes OLS (âge → variable) par patient pour capturer la trajectoire.
+    # Pentes OLS (âge = variable) par patient pour capturer la trajectoire.
     pid_arr = df["patient_id"].values
     age_arr = df["age"].values.astype(float)
     for col in AGG_COLS_NUM:
@@ -335,27 +289,30 @@ def _compute_pat_aggregates(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _rater_oof_bias(df_tr: pd.DataFrame, y_tr: np.ndarray) -> dict:
-    """Estime le biais systématique de chaque évaluateur (rater) sur le train fold.
+    
+"""Calcule le biais moyen de chaque évaluateur à partir des données d'entraînement.
 
-    Pour chaque rater_id, calcule la moyenne des résidus (y_tr - off_fill)
-    où off_fill est la valeur off avec la médiane du fold comme fallback pour
-    les NaN. Ce biais est ensuite utilisé comme feature (Bloc H) pour corriger
-    les effets évaluateurs sans jamais utiliser les labels du fold de validation.
+    Pour chaque évaluateur (rater_id), on calcule la différence moyenne entre le score réel (y_tr) et la valeur off.
 
-    Parameters
-    ----------
+    Si certaines valeurs off sont manquantes, on les remplace par la médiane des valeurs off du groupe d'entraînement.
+
+    Le résultat permet de voir si certains évaluateurs ont tendance à donner des scores plus élevés ou plus faibles que prévu. Ces informations sont ensuite utilisées comme nouvelle variable (Bloc H).
+
+    On utilise uniquement les données d'entraînement pour éviter d'utiliser les scores du groupe de validation dans les calculs.
+
+    Paramètres:
     df_tr : pd.DataFrame
-        DataFrame features-only du fold d'entraînement. Doit contenir
-        les colonnes "off" et "rater_id".
-    y_tr : np.ndarray of shape (n_train,)
-        Valeurs cibles du fold d'entraînement.
+        Tableau des données d'entraînement contenant les colonnes
+        off et rater_id.
+    y_tr : np.ndarray
+        Scores réels des patients dans le groupe d'entraînement.
 
-    Returns
-    -------
+    Retour:
     dict
-        Dictionnaire {rater_id: float} — biais moyen en unités de score
-        MDS-UPDRS. Clés = identifiants d'évaluateurs présents dans df_tr.
+        Dictionnaire contenant le biais moyen de chaque évaluateur,
+        associé à son identifiant rater_id.
     """
+
     off_vals  = df_tr["off"].values
     raters    = df_tr["rater_id"].values
     # Fallback pour les NaN : médiane du fold (évite de perdre des lignes).
@@ -365,26 +322,21 @@ def _rater_oof_bias(df_tr: pd.DataFrame, y_tr: np.ndarray) -> dict:
 
 
 def _lgbm_encode(X: pd.DataFrame, cat_cols: list) -> pd.DataFrame:
-    """Prépare le DataFrame pour LightGBM : convertit les catégorielles et int8.
+   
+"""Prépare les données avant de les utiliser avec LightGBM.
 
-    LightGBM attend des colonnes catégorielles de dtype 'category' (pandas)
-    pour activer son encodage interne de catégorielles (utilise des histogrammes
-    séparés, meilleur que l'encodage ordinal manuel).
-    Les colonnes int8 sont converties en float pour éviter des avertissements
-    de type lors de la construction des datasets LightGBM.
+    Les colonnes catégorielles sont converties au format category pour que LightGBM puisse les traiter correctement.
 
-    Parameters
-    ----------
-    X : pd.DataFrame
-        Feature matrix à préparer.
-    cat_cols : list of str
-        Liste des colonnes à caster en dtype 'category'.
+    Les colonnes de type int8 sont converties en float pour éviter les avertissements lors de la préparation des données.
 
-    Returns
-    -------
-    pd.DataFrame
-        Copie de X avec les dtypes ajustés.
+    Paramètres: 
+    X : pd.DataFrame - tableau contenant les variables du modèle.
+    cat_cols : list - liste des colonnes à convertir au format category.
+
+    Retour:
+    pd.DataFrame - une copie du tableau avec les types de colonnes adaptés.
     """
+
     X = X.copy()
     for c in cat_cols:
         X[c] = X[c].astype("category")
@@ -397,108 +349,97 @@ def build_features(df_raw: pd.DataFrame,
                    rater_bias: dict,
                    pat_agg: pd.DataFrame,
                    hist_df: pd.DataFrame) -> pd.DataFrame:
-    """Construit la matrice de features complète à partir du DataFrame brut.
+   
+"""Prépare toutes les variables utilisées par le modèle.
 
-    Assemble sept blocs de features (B, I, E, D_pos, C, A, F, H, S) issus des
-    expériences 12-16, plus la feature levo_decay_off introduite en exp17.
-    Cette fonction est appelée séparément pour le fold train (df_tr), le fold
-    val (df_val) et le test final. Elle ne touche jamais la target.
+    Cette fonction regroupe les différentes variables créées dans les expériences précédentes (exp12 à exp16) et ajoute une nouvelle variable liée au temps depuis la prise de lévodopa (exp17).
 
-    Blocs de features
-    -----------------
-    B   Patient-level aggregates (mean, median, std, min, max, count, slope)
-        calculés sur le sous-DataFrame passé via pat_agg. Pas de fuite : le
-        pat_agg est toujours calculé sur le même sous-ensemble que df_raw.
-    I   Dérivées intra-visite : time_since_diagnosis, on_minus_off, on_div_off.
-    E   Flags de valeurs manquantes (suffixe _na) pour les colonnes clés.
-    D_pos   Position relative de la visite dans la séquence patient
-            (visit_rank, time_since_first_visit, time_to_last_visit,
-            rel_visit_pos). Utilise les limites de âge issues du Bloc B.
-    C   Voisins temporels (valeur et gap d'âge de la visite précédente /
-        suivante) pour off, on, ledd, time_since_intake_off.
-    A   Interactions diff/ratio/prod entre les colonnes brutes et les
-        statistiques patient du Bloc B.
-    F   Nombre de visites par évaluateur (rater_visit_count).
-    H   Biais OOF de l'évaluateur (rater_oof_bias) issu de _rater_oof_bias.
-        Calculé sur le fold train uniquement → les évaluateurs absents du train
-        reçoivent le biais moyen global (fallback neutre, pas de fuite target).
-    S   Historique séquentiel patient (Bloc S exp15) : off_hist_mean,
-        off_hist_count, off_hist_std, ledd_hist_mean, hist_n_visits, plus
-        off_vs_hist_mean (déviation instantanée par rapport à la baseline).
-    D_levo  [NEW exp17] levo_decay_off = exp(-time_since_intake_off / 2.0),
-        NaN si time_since_intake_off est absent. Proxy de concentration
-        plasmatique de lévodopa au moment de la visite (modèle PK exp1).
+    Elle est utilisée séparément pour les données d'entraînement, de validation et de test. Elle ne fait jamais appel à la colonne target.
 
-    Parameters
-    ----------
-    df_raw : pd.DataFrame
-        DataFrame features-only (sans "target") pour le sous-ensemble
-        considéré (fold train, fold val, ou test).
-    rater_bias : dict
-        Biais par évaluateur produit par _rater_oof_bias sur le fold train.
+    Les différents groupes de variables :
+    
+    B : Statistiques par patient (moyenne, médiane, écart-type, minimum,
+        maximum, nombre de valeurs et pente).
+
+    I : Nouvelles variables calculées à partir des données, comme le temps
+        depuis le diagnostic et les différences entre on et off.
+
+    E : Variables indiquant si certaines valeurs sont manquantes.
+
+    D_pos : Position de chaque visite dans l'historique du patient
+            (rang de la visite et temps écoulé depuis la première visite).
+
+    C : Valeurs de la visite précédente et suivante pour certaines
+        variables, ainsi que les différences d'âge entre les visites.
+
+    A : Combinaisons entre les variables d'origine et les statistiques
+        calculées pour chaque patient.
+
+    F : Nombre de visites associées à chaque évaluateur.
+
+    H : Biais moyen de chaque évaluateur, calculé à partir des données
+        d'entraînement uniquement. Si un évaluateur n'est pas présent
+        dans l'entraînement, on utilise une valeur moyenne par défaut.
+
+    S : Informations sur les visites précédentes du patient, comme les
+        moyennes de off et ledd, ainsi que le nombre de visites passées.
+        On ajoute aussi la différence entre off et sa moyenne historique.
+
+    D_levo : Nouvelle variable de l'expérience 17 qui estime l'effet de la
+             lévodopa selon le temps écoulé depuis la prise du médicament.
+             Si cette information est absente, la valeur est NaN.
+
+    Paramètres
+    df_raw : pd.DataFrame - Tableau contenant les variables d'origine, sans la colonne target.
+    rater_bias : dict - Biais calculés pour chaque évaluateur à partir des données d'entraînement.
     pat_agg : pd.DataFrame
-        Agrégats patient (indexés par patient_id) produits par
-        _compute_pat_aggregates sur le même sous-ensemble que df_raw.
+        Tableau contenant les statistiques calculées pour chaque patient.
     hist_df : pd.DataFrame
-        Historique séquentiel produit par compute_patient_history, découpé
-        sur les mêmes indices que df_raw (hist_train.iloc[tr/val] ou hist_test).
+        Tableau contenant les informations sur les visites précédentes de chaque patient.
 
-    Returns
-    -------
+    Retour
     pd.DataFrame
-        Matrice de features finale, même index que df_raw. Les colonnes
-        patient_id et Index sont supprimées (identifiants non prédictifs).
-        Les colonnes _prod et _ratio sont clippées à [-1e4, 1e4] pour éviter
-        les valeurs extrêmes dans les interactions.
+        Tableau final contenant toutes les variables du modèle.
+        Les colonnes patient_id et Index sont supprimées, car elles servent uniquement à identifier les patients et les visites.
+
+        Les valeurs trop grandes dans les variables de type produit ou ratio sont limitées entre -10000 et 10000 pour éviter les valeurs extrêmes.
     """
+
     assert "target" not in df_raw.columns
     orig_index = df_raw.index.copy()
     feat = df_raw.copy()
 
-    # ------------------------------------------------------------------
     # Bloc B : agrégats patient
-    # Jointure sur patient_id pour que chaque visite hérite des statistiques
-    # de son patient calculées sur le sous-ensemble courant (pas sur tout le
-    # train → pas de fuite inter-folds).
-    # ------------------------------------------------------------------
+    # Jointure sur patient_id pour que chaque visite hérite des statistiques de son patient calculées sur le sous-ensemble courant (pas sur tout le train = pas de fuite inter-folds).
+
     feat = feat.join(pat_agg, on="patient_id", how="left")
 
-    # ------------------------------------------------------------------
     # Bloc I : features dérivées intra-visite
-    # ------------------------------------------------------------------
     feat["time_since_diagnosis"] = feat["age"] - feat["age_at_diagnosis"]
     mask_both = feat["off"].notna() & feat["on"].notna()
     feat["on_minus_off"] = np.where(mask_both, feat["on"] - feat["off"], np.nan)
     feat["on_div_off"]   = np.where(
         mask_both & (feat["off"].abs() > 1e-8), feat["on"] / feat["off"], np.nan)
 
-    # ------------------------------------------------------------------
     # Bloc E : indicateurs de données manquantes
-    # LightGBM gère nativement les NaN, mais exposer le motif de manquant
-    # aide le modèle à apprendre des règles sur la disponibilité des données.
-    # ------------------------------------------------------------------
+    # LightGBM gère nativement les NaN, mais exposer le motif de manquant aide le modèle à apprendre des règles sur la disponibilité des données.
     for col in ["off", "on", "ledd", "gene",
                 "time_since_intake_on", "time_since_intake_off"]:
         if col in feat.columns:
             feat[f"{col}_na"] = feat[col].isna().astype(np.int8)
 
-    # ------------------------------------------------------------------
-    # Bloc D_pos : position de la visite dans la trajectoire patient
-    # visit_rank et rel_visit_pos permettent au modèle de distinguer les
-    # visites de début, milieu et fin de suivi (trajectoire non linéaire).
-    # ------------------------------------------------------------------
+    # Bloc D_pos : position de la visite dans la trajectoire patient visit_rank et rel_visit_pos permettent au modèle de distinguer les visites de début, milieu et fin de suivi (trajectoire non linéaire).
+
     feat_s = feat.sort_values(["patient_id", "age"])
     feat["visit_rank"] = feat_s.groupby("patient_id").cumcount().loc[orig_index].values
     feat["time_since_first_visit"] = feat["age"] - feat["age_first_pat"]
     feat["time_to_last_visit"]     = feat["age_last_pat"] - feat["age"]
     feat["rel_visit_pos"] = feat["visit_rank"] / (feat["n_visits_pat"] - 1).clip(lower=1)
 
-    # ------------------------------------------------------------------
     # Bloc C : voisins temporels
-    # Pour chaque visite, fournit la valeur de la visite précédente et
-    # suivante ainsi que le gap d'âge. Capture la dérivée locale de la
-    # progression sans utiliser la target.
-    # ------------------------------------------------------------------
+    # Pour chaque visite, fournit la valeur de la visite précédente et suivante ainsi que le gap d'âge. 
+    # Capture la dérivée locale de la  progression sans utiliser la target.
+
     feat_nb = feat.sort_values(["patient_id", "age"])
     for col in NEIGHBOR_COLS:
         if col not in feat_nb.columns:
@@ -513,11 +454,8 @@ def build_features(df_raw: pd.DataFrame,
         feat[f"{col}_age_gap_prev"] = (age_s - age_p).loc[orig_index].values
         feat[f"{col}_age_gap_next"] = (age_n - age_s).loc[orig_index].values
 
-    # ------------------------------------------------------------------
-    # Bloc A : interactions (diff, ratio, prod) entre features brutes et
-    # agrégats patient. Permet au modèle de raisonner sur la déviation d'une
-    # visite par rapport au profil moyen du patient.
-    # ------------------------------------------------------------------
+    # Bloc A : interactions (diff, ratio, prod) entre features brutes et agrégats patient. 
+    # Permet au modèle de raisonner sur la déviation d'une visite par rapport au profil moyen du patient.
     for f_col, agg_col in [
         ("off","off_mean_pat"), ("on","on_mean_pat"), ("ledd","ledd_mean_pat"),
         ("age","off_mean_pat"), ("age_at_diagnosis","off_mean_pat"),
@@ -540,51 +478,39 @@ def build_features(df_raw: pd.DataFrame,
         feat[f"{stub}_diff"] = feat[f_col] - feat[agg_col]
         feat[f"{stub}_prod"] = feat[f_col] * feat[agg_col]
 
-    # ------------------------------------------------------------------
     # Bloc F : volume de visites par évaluateur
-    # Proxy de la calibration de l'évaluateur (les évaluateurs fréquents
-    # tendent à être plus fiables / consistants).
-    # ------------------------------------------------------------------
+    # Proxy de la calibration de l'évaluateur (les évaluateurs fréquents tendent à être plus fiables / consistants).
     feat["rater_visit_count"] = feat.groupby("rater_id")["age"].transform("count")
 
-    # ------------------------------------------------------------------
-    # Bloc H : biais OOF de l'évaluateur (exp15/16)
-    # rater_bias est calculé sur le fold train uniquement (appel à
-    # _rater_oof_bias avec y_tr). Les évaluateurs absents du train
-    # reçoivent la moyenne des biais connus — fallback neutre, jamais
-    # de fuite target vers le fold de validation.
-    # ------------------------------------------------------------------
+    # Bloc H : biais OOF de l'évaluateur (exp15/16) 
+    # rater_bias est calculé sur le fold train uniquement (appel à rater_oof_bias avec y_tr). 
+    # Les évaluateurs absents du train reçoivent la moyenne des biais connus — fallback neutre, jamais de fuite target vers le fold de validation.
+
     global_fb = float(np.mean(list(rater_bias.values()))) if rater_bias else 0.0
     feat["rater_oof_bias"] = feat["rater_id"].map(rater_bias).fillna(global_fb)
 
-    # ------------------------------------------------------------------
     # Bloc S : historique séquentiel patient (exp15, inchangé)
-    # hist_df est la tranche de hist_train ou hist_test correspondant aux
-    # indices de df_raw. Pré-calculé avant le CV sur X uniquement.
-    # off_vs_hist_mean = déviation instantanée de off par rapport à la
-    # baseline patient → capte les fluctuations intra-patient.
-    # ------------------------------------------------------------------
+    # hist_df est la tranche de hist_train ou hist_test correspondant aux indices de df_raw. Pré-calculé avant le CV sur X uniquement.
+    # off_vs_hist_mean = déviation instantanée de off par rapport à la baseline patient → capte les fluctuations intra-patient.
+
     for col in hist_df.columns:
         feat[col] = hist_df.loc[orig_index, col].values
     feat["off_vs_hist_mean"] = feat["off"] - feat["off_hist_mean"]
 
-    # ------------------------------------------------------------------
     # Bloc D_levo : proxy de concentration lévodopa [NEW exp17]
-    # levo_decay_off = exp(-t / T½) où t = time_since_intake_off (heures)
-    # et T½ = 2.0 h. Transforme un temps discret en un signal de
-    # concentration continue qui est directement lié à l'effet PD mesuré.
-    # NaN si la colonne est absente ou manquante (les patients non
-    # médicamentés ne reçoivent pas de valeur fictive).
-    # ------------------------------------------------------------------
+    # levo_decay_off = exp(-t / T^1/2) où t = time_since_intake_off (heures)
+    # et T½ = 2.0 h. Transforme un temps discret en un signal de concentration continue qui est directement lié à l'effet PD mesuré.
+    # NaN si la colonne est absente ou manquante (les patients non médicamentés ne reçoivent pas de valeur fictive).
+
     t_off = pd.to_numeric(
         feat.get("time_since_intake_off", pd.Series(np.nan, index=feat.index)),
         errors="coerce")
     feat["levo_decay_off"] = np.where(
         t_off.notna(), np.exp(-t_off / LEVO_T_HALF), np.nan)
 
-    # ------------------------------------------------------------------
+ 
     # Nettoyage final
-    # ------------------------------------------------------------------
+
     assert "target" not in feat.columns  # Vérification anti-fuite finale.
     # Suppression des identifiants (patient_id, Index) : non prédictifs et
     # risque de sur-apprentissage si laissés dans la matrice.
